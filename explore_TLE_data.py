@@ -3,10 +3,11 @@ from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import json
+import pickle
 from tabulate import tabulate
 
 from sgp4.earth_gravity import wgs84
-from sgp4.io import twoline2rv
+from sgp4.api import Satrec, jday
 
 import os
 from dotenv import load_dotenv
@@ -87,34 +88,80 @@ def parse_tle_set(tle_set):
         'line2': line2
     }
 
-def add_state_vectors(df):
+def compute_state_vectors(tle_line1, tle_line2, epoch):
     """
-    Add position and velocity vectors to the DataFrame.
+    Compute position and velocity vectors for a satellite using TLE data and epoch time.
     
     Parameters:
-    - df: DataFrame containing TLE data
+    - tle_line1 (str): First line of the TLE.
+    - tle_line2 (str): Second line of the TLE.
+    - epoch (datetime): Epoch time as a datetime object.
     
     Returns:
-    - Updated DataFrame with state vectors
+    - dict: A dictionary containing 'position' and 'velocity' vectors.
+            Example: {'position': [x, y, z], 'velocity': [vx, vy, vz]}
     """
+    try:
+        # Create a satellite object from the TLE lines
+        satellite = Satrec.twoline2rv(tle_line1, tle_line2)
+        
+        # Convert the epoch time to Julian date
+        jd, fr = jday(
+            epoch.year,
+            epoch.month,
+            epoch.day,
+            epoch.hour,
+            epoch.minute,
+            epoch.second
+        )
+        
+        # Propagate the satellite to the epoch time
+        e, position, velocity = satellite.sgp4(jd, fr)
+        
+        # Check for errors during propagation
+        if e != 0:
+            raise ValueError(f"Error propagating TLE at epoch {epoch}: Error code {e}")
+        
+        # Return the position and velocity vectors
+        return {
+            'position': position,  # [x, y, z] in km
+            'velocity': velocity   # [vx, vy, vz] in km/s
+        }
+    
+    except Exception as ex:
+        print(f"Error processing TLE: {ex}")
+        return {
+            'position': [None, None, None],
+            'velocity': [None, None, None]
+        }
+
+def add_state_vectors_to_dataframe(df):
+    """
+    Add position and velocity vectors to a DataFrame containing TLE data.
+    
+    Parameters:
+    - df (pd.DataFrame): DataFrame containing TLE data with columns 'TLE_LINE1', 'TLE_LINE2', and 'EPOCH'.
+    
+    Returns:
+    - pd.DataFrame: Updated DataFrame with additional columns for position and velocity vectors.
+    """
+    # Ensure the 'EPOCH' column is a datetime object
+    df['EPOCH'] = pd.to_datetime(df['EPOCH'])
+    
+    # Initialize lists to store position and velocity vectors
     positions = []
     velocities = []
-
+    
     for _, row in df.iterrows():
-        satellite = twoline2rv(row['line1'], row['line2'], wgs84)
-        position, velocity = satellite.propagate(
-            row['epoch'].year, 
-            row['epoch'].month, 
-            row['epoch'].day, 
-            row['epoch'].hour, 
-            row['epoch'].minute, 
-            row['epoch'].second
-        )
-        positions.append(position)
-        velocities.append(velocity)
-
+        # Compute state vectors for each row
+        state_vectors = compute_state_vectors(row['TLE_LINE1'], row['TLE_LINE2'], row['EPOCH'])
+        positions.append(state_vectors['position'])
+        velocities.append(state_vectors['velocity'])
+    
+    # Add position and velocity vectors to the DataFrame
     df['position_x'], df['position_y'], df['position_z'] = zip(*positions)
     df['velocity_x'], df['velocity_y'], df['velocity_z'] = zip(*velocities)
+    
     return df
 
 def test_login(username, password): #Check if the login credentials work
@@ -151,8 +198,16 @@ def main():
     with open ('ISS_Zayra_Historic_TLE.json', 'r') as f: 
         data = json.load(f)
     
-    iss_data_df = pd.DataFrame(data)
-    print(iss_data_df.columns)
+    #convert json to dataframe and then pickle for later 
+    
+    data_df = pd.DataFrame(data)
+    data_df_state = add_state_vectors_to_dataframe(data_df)
+    print(data_df_state[['EPOCH', 'position_x', 'position_y', 'position_z', 'velocity_x', 'velocity_y', 'velocity_z']].head())
+    with open('data_df_states.pkl', 'wb') as f: 
+        pickle.dump(data_df_state, f)
+    # with open('data_df_states.pkl', 'rb') as f: 
+    #     a = pickle.load(f)
+    
 
 if __name__ == "__main__":
     main()
