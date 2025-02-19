@@ -56,6 +56,57 @@ def get_celestrak_data(catalog_number=None, satellite_name=None, dataset='active
         print(f"Error fetching data: {e}")
         return None
 
+#buggy stuff
+    """
+    Fetch historical TLE data for a satellite from Celestrak.
+    
+    Parameters:
+    - catalog_number: NORAD catalog number (default: 25544 for ISS)
+    - start_date: Start date in "YYYY-MM-DD" format
+    - end_date: End date in "YYYY-MM-DD" format
+    
+    Returns:
+    - List of TLE sets (each set contains name, line1, line2)
+    """
+    base_url = "https://celestrak.org/NORAD/elements/gp.php"
+    params = {
+        'CATNR': catalog_number,
+        'FORMAT': 'TLE'
+    }
+    
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        
+        # Split response into individual TLEs (3 lines each)
+        tle_data = response.text.strip().split('\n')
+        tle_sets = [tle_data[i:i+3] for i in range(0, len(tle_data), 3)]
+        
+        # Filter TLEs within the date range
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        
+        filtered_tle_sets = []
+        for tle_set in tle_sets:
+            epoch_str = tle_set[1][18:32]  # Extract epoch from line1
+            year = int(epoch_str[:2])
+            day_of_year = float(epoch_str[2:])
+            
+            # Convert two-digit year to full year
+            year = 2000 + year if year < 57 else 1900 + year
+            
+            # Convert day of year to datetime
+            epoch = datetime(year, 1, 1) + timedelta(days=day_of_year - 1)
+            
+            if start_date <= epoch <= end_date:
+                filtered_tle_sets.append(tle_set)
+        
+        return filtered_tle_sets
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data: {e}")
+        return None
+
 def parse_tle(line1, line2):
     # Extract orbital elements
     epoch = line1[18:32]
@@ -120,7 +171,9 @@ def tle_to_dataframe(tle_sets):
             'arg_perigee': float(line2[34:42]),
             'mean_anomaly': float(line2[43:51]),
             'mean_motion': float(line2[52:63]),
-            'rev_number': float(line1[63:68])
+            'rev_number': float(line1[63:68]),
+            'line1': line1,
+            'line2':line2
         }
         
         # Calculate additional parameters
@@ -190,28 +243,7 @@ def add_state_vectors(df):
     return df
 
 def main():
-    
-    # iss_tles = get_celestrak_data(catalog_number=25544)#get ISS data
-    # # Example of processing the data
-    # if iss_tles:
-    #     for tle_set in iss_tles:
-    #         name = tle_set[0].strip()
-    #         line1 = tle_set[1]
-    #         line2 = tle_set[2]
-    #         print(f"Satellite: {name}")
-    #         print(f"Line 1: {line1}")
-    #         print(f"Line 2: {line2}")
-    iss_df = get_satellite_dataframe(catalog_number=25544)
-    
-    # if iss_df is not None: #iss_df is not none
-    #     print("\nISS Orbital Parameters:")
-    #     print(iss_df)
-        
-    #     print("\nBasic statistics:")
-    #     print(f"Orbital Period: {iss_df['period_minutes'].iloc[0]:.2f} minutes")
-    #     print(f"Inclination: {iss_df['inclination'].iloc[0]:.2f} degrees")
-    #     print(f"Semi-major axis: {iss_df['semi_major_axis'].iloc[0]:.2f} km")
-    
+
 if __name__ == "__main__":
     main()
 
