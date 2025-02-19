@@ -152,7 +152,7 @@ def main():
         data = json.load(f)
     
     iss_data_df = pd.DataFrame(data)
-    print(iss_data_df)
+    print(iss_data_df.columns)
 
 if __name__ == "__main__":
     main()
