@@ -2,7 +2,7 @@ import requests
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
-
+from tabulate import tabulate
 
 from sgp4.earth_gravity import wgs84
 from sgp4.io import twoline2rv
@@ -162,7 +162,6 @@ def get_satellite_dataframe(catalog_number=None, satellite_name=None, dataset='a
 def add_state_vectors(df):
     """
     Add position and velocity vectors to the DataFrame
-    Requires sgp4 library: pip install sgp4
     """
     positions = []
     velocities = []
@@ -204,14 +203,14 @@ def main():
     #         print(f"Line 2: {line2}")
     iss_df = get_satellite_dataframe(catalog_number=25544)
     
-    if iss_df is not None: #iss_df is not none
-        print("\nISS Orbital Parameters:")
-        print(iss_df)
+    # if iss_df is not None: #iss_df is not none
+    #     print("\nISS Orbital Parameters:")
+    #     print(iss_df)
         
-        print("\nBasic statistics:")
-        print(f"Orbital Period: {iss_df['period_minutes'].iloc[0]:.2f} minutes")
-        print(f"Inclination: {iss_df['inclination'].iloc[0]:.2f} degrees")
-        print(f"Semi-major axis: {iss_df['semi_major_axis'].iloc[0]:.2f} km")
+    #     print("\nBasic statistics:")
+    #     print(f"Orbital Period: {iss_df['period_minutes'].iloc[0]:.2f} minutes")
+    #     print(f"Inclination: {iss_df['inclination'].iloc[0]:.2f} degrees")
+    #     print(f"Semi-major axis: {iss_df['semi_major_axis'].iloc[0]:.2f} km")
     
 if __name__ == "__main__":
     main()
