@@ -203,7 +203,6 @@ def main():
     #         print(f"Line 1: {line1}")
     #         print(f"Line 2: {line2}")
     iss_df = get_satellite_dataframe(catalog_number=25544)
-    iss_df_state_vec = add_state_vectors(iss_df)
     
     if iss_df is not None: #iss_df is not none
         print("\nISS Orbital Parameters:")
@@ -213,9 +212,6 @@ def main():
         print(f"Orbital Period: {iss_df['period_minutes'].iloc[0]:.2f} minutes")
         print(f"Inclination: {iss_df['inclination'].iloc[0]:.2f} degrees")
         print(f"Semi-major axis: {iss_df['semi_major_axis'].iloc[0]:.2f} km")
-        
-    if iss_df_state_vec is not None: 
-        
     
 if __name__ == "__main__":
     main()
